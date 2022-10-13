@@ -1,6 +1,6 @@
 Package: EValueWeightsPaper
 Type: Package
-Title: What the Package Does (Title Case)
+Title: Reproduction code for the paper "E-values as unnormalized weights in multiple testing"
 Version: 0.1.0
 Author: Who wrote it
 Maintainer: The package maintainer <yourself@somewhere.net>
@@ -13,7 +13,8 @@ Imports:
     IHW,
     limma,
     DESeq2,
-    genefilter
+    genefilter,
+    dplyr
 RoxygenNote: 7.2.1
 Depends: 
     R (>= 2.10)

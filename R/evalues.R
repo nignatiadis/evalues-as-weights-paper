@@ -53,6 +53,7 @@ limma_results_table_with_evalues <- function(fit, coef){
     B <- as.matrix(fit$lods)[,coef]
     data_dof <- fit$df.residual
     prior_dof <- fit$df.prior
+    prior_s2 <- fit$s2.prior
     gamma_hat_init <-  fit$var.prior[coef_idx]
 
     refit_eb <- limma::eBayes(fit, proportion=1)
@@ -66,6 +67,7 @@ limma_results_table_with_evalues <- function(fit, coef){
     tab$evalue <- evals
 
     attr(tab, "prior_dof") <- prior_dof
+    attr(tab, "prior_s2") <- prior_s2
     attr(tab, "gamma_hat_init") <- gamma_hat_init
     attr(tab, "gamma_hat_prop1") <- gamma_hat_prop1
 

@@ -119,7 +119,6 @@ ep_BH <- function(Ps, Es, alpha, Storey=FALSE){
     tau_cens <- 1
   }
   Es <- Es/pi0_hat
-  combined_Ps <-divide_Ps_by_Ws(Ps, Es)
   adj_p <- tau_weighted_bh(Ps, Es, tau=tau_cens, Storey=FALSE)
   adj_p <= alpha
 }

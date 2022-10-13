@@ -1,0 +1,436 @@
+---
+title: "Bottomly analysis: E-Values as Multiple Testing Weights"
+date: today
+format: html
+message: false
+---
+
+
+```{r}
+#| warning: false
+#| message: false
+library(here)
+library(sessioninfo)
+library(EValueWeightsPaper)
+library(DESeq2)
+library(tidyverse)
+library(GEOquery)
+library(utils)
+library(mouse4302.db)
+library(AnnotationDbi)
+library(limma)
+library(oligo)
+library(cowplot)
+library(IHW)
+library(kableExtra)
+```
+
+# DESeq2 analysis
+
+Load dataset:
+```{r}
+data("bottomly")
+```
+Subset to the first two batches:
+```{r}
+bottomly <- bottomly[, bottomly$batch %in% c("b4", "b6")]
+```
+Run DESeq2 analysis.
+```{r}
+dds <- DESeqDataSet(se=bottomly, design= ~ batch + strain)
+dds <- DESeq(dds)
+res_bottomly <- as.data.frame(results(dds)) %>% filter(baseMean >= 0.2, !is.na(pvalue))
+head(res_bottomly)
+```
+
+# Microarray analysis
+
+## Download files
+
+```{r}
+files_dir <- here("data_analysis","microarray_files")
+```
+
+```{r}
+microarray <- getGEO(GEO="GSE26024", destdir=files_dir, GSEMatrix=TRUE)
+```
+
+```{r}
+suppl_file_names <- list.files(file.path(files_dir, "GSE26024_RAW"))
+if (length(suppl_file_names) == 0){
+  microarray_suppl <- getGEOSuppFiles(GEO="GSE26024", baseDir=files_dir, makeDirectory=FALSE)
+  untar(file.path(files_dir, "GSE26024_RAW.tar"),
+      exdir=file.path(files_dir, "GSE26024_RAW"))
+}
+suppl_file_names <- list.files(file.path(files_dir, "GSE26024_RAW"))[2:21]
+```
+
+## Preprocessing and normalization
+
+Prepare metadata for microarray.
+```{r}
+affy <- microarray[[1]]
+affy_pdata <- pData(affy)
+affy_fdata <- featureData(affy)
+rownames(affy_pdata) <- suppl_file_names
+affy_pdata <- AnnotatedDataFrame(affy_pdata)
+affy_pdata$gender <- factor(ifelse(affy_pdata$characteristics_ch1 == "gender: male", "male", "female"))
+affy_pdata$strain <-  factor(ifelse(affy_pdata$characteristics_ch1.1 == "strain: C57BL/6J", "C57BL", "DBA"))
+```
+
+
+Load in raw data and filter to male mice.
+```{r}
+affy_raw_data <- oligo::read.celfiles(filenames = file.path(files_dir, "GSE26024_RAW", suppl_file_names),
+                                 verbose = FALSE, phenoData = affy_pdata)
+affy_raw_data <- affy_raw_data[, affy_raw_data$gender=="male"]
+```
+
+Run RMA normalization.
+```{r}
+rma_affy <- oligo::rma(affy_raw_data)
+```
+
+## Match Probe IDs to ENSEMBL ids (to be able to match microarray-based tests to the RNASeq ones)
+
+Construct 1 to many mapping from probe ids to ensembl ids.
+```{r}
+anno_bottomly <- AnnotationDbi::select(mouse4302.db,
+                                       keys = (featureNames(rma_affy)),
+                                       columns = c("ENSEMBL"),
+                                       keytype = "PROBEID")
+```
+
+Remove probes that either did not match to any ensembl id, or that matched to multiple ids.
+```{r}
+anno_bottomly_no_of_matches <- group_by(anno_bottomly, PROBEID) %>%
+    dplyr::summarize(is_na = any(is.na(ENSEMBL)),
+                     no_of_matches = n_distinct(ENSEMBL))
+
+filtered_ids <- (anno_bottomly_no_of_matches$no_of_matches) == 1 &
+                (!anno_bottomly_no_of_matches$is_na)
+
+
+rma_affy_filt <- rma_affy[filtered_ids, ]
+```
+
+Get the 1 to 1 matching of probe ids to ENSEMBL ids.
+```{r}
+anno_bottomly_filt <- AnnotationDbi::select(mouse4302.db,
+                                       keys = (featureNames(rma_affy_filt)),
+                                       columns = c("ENSEMBL"),
+                                       keytype = "PROBEID")
+# Sanity check
+stopifnot(all(rownames(rma_affy_filt) == anno_bottomly_filt$PROBEID))
+```
+
+When multiple probes match to the same ENSEMBL id, only keep the one with the largest average intensity (as recommended by Gordon Smyth in the [Bioconductor support forum](https://support.bioconductor.org/p/126306/)).
+
+```{r}
+A <- rowMeans(exprs(rma_affy_filt))
+o <- order(A, decreasing=TRUE)
+ordered_probe_ids <- rownames(rma_affy_filt[o])
+ordered_ensembl_id <- anno_bottomly_filt$ENSEMBL[o]
+d <- duplicated(ordered_ensembl_id)
+o_filt <- o[!d]
+
+rma_affy_gene <- rma_affy_filt[o_filt, ]
+stopifnot(all(anno_bottomly_filt$PROBEID[o_filt] == rownames(rma_affy_gene)))
+rownames(rma_affy_gene) <- anno_bottomly_filt$ENSEMBL[o_filt]
+```
+
+
+
+## PCA plot 
+
+```{r}
+pca_plot <- function(eset){
+    log_eset <- log2(Biobase::exprs(eset))
+    PCA_fit <- prcomp(t(log_eset), scale. = FALSE)
+    percent_var <- round(100*PCA_fit$sdev^2/sum(PCA_fit$sdev^2),1)
+    sd_ratio <- sqrt(percent_var[2] / percent_var[1])
+    dataGG <- data.frame(PC1 = PCA_fit$x[,1], PC2 = PCA_fit$x[,2],
+                     Strain = eset$strain)
+
+    ggplot(dataGG, aes(PC1, PC2)) +
+        geom_point(aes(shape = Strain, colour = Strain)) +
+        ggtitle("PCA plot of the log-transformed raw expression data") +
+        xlab(paste0("PC1, VarExp: ", percent_var[1], "%")) +
+        ylab(paste0("PC2, VarExp: ", percent_var[2], "%")) +
+        theme(plot.title = element_text(hjust = 0.5))+
+        coord_fixed(ratio = sd_ratio) +
+        scale_shape_manual(values = c(4,15)) +
+        scale_color_manual(values = c("darkorange2", "dodgerblue4"))
+}
+```
+
+```{r}
+pca_plot(rma_affy_gene)
+```
+
+## LIMMA analysis
+
+```{r}
+affy_design <- with(pData(rma_affy_gene), model.matrix( ~ strain))
+affy_lm_fit <- lmFit(rma_affy_gene, affy_design)
+affy_ebayes_lm_fit <- eBayes(affy_lm_fit)
+```
+
+The helper function below also computes the e-values.
+```{r}
+affy_res <- limma_results_table_with_evalues(affy_ebayes_lm_fit, coef="strainDBA")
+```
+
+
+
+
+
+
+# Combined analysis
+
+## Joint data frame
+
+
+Map each row of the RNASeq dataset to rows of the microarray dataset (return NA if there is no match).
+```{r}
+match_idx <- match(rownames(res_bottomly), rownames(affy_res))
+```
+
+```{r}
+microarray_pvalues <- affy_res$P.Value[match_idx]
+```
+
+Set e-value of genes that did not have a match in the microarray dataset to 1:
+```{r}
+microarray_evalues <- affy_res$evalue[match_idx]
+microarray_evalues[is.na(microarray_evalues)] <- 1
+```
+
+```{r}
+res <- res_bottomly %>%
+  mutate(microarray_pvalue = microarray_pvalues,
+        evalue=microarray_evalues,
+        pe = pmin(pvalue/ evalue, 1))
+head(res)
+```
+
+
+## Plot p-values, e-values and merged pe-values
+```{r}
+#| warning: false
+#| fig-height: 4
+#| fig-width: 13
+
+hist1 <- ggplot(res, aes(x = pvalue)) + geom_histogram(binwidth = 0.025, boundary = 0) + ylim(0, 6000)
+hist2 <- ggplot(res, aes(x = pe)) + geom_histogram(binwidth = 0.025, boundary = 0) + ylim(0, 6000)
+
+new_df <- rbind( data.frame( pvalue = res$pvalue, group="vanilla"),
+                 data.frame( pvalue = res$pe, group="P/E")) %>%
+          mutate(group = factor(group, levels=c("vanilla","P/E")))
+
+hist_pvalue <- ggplot(res, aes(x = pvalue)) +
+    geom_histogram(binwidth = 0.025, boundary = 0, alpha=0.4, color="black", fill="black") +
+    xlab(expression(P[i])) + theme_cowplot()
+
+hist_evalue <- ggplot(filter(res, evalue !=1), aes(x = pmin(evalue,5))) +
+    geom_histogram(boundary=0.43, binwidth=0.1, alpha=0.4, color="black", fill="blue") +
+    xlab(expression("min("~E[i]~", 5)")) +
+    scale_x_continuous(breaks=c(0.43, 1, 2, 3, 4, 5)) +
+    theme_cowplot()
+
+
+merged_hist <- ggplot(new_df, aes(x = pvalue, fill = group)) +
+    geom_histogram(binwidth = 0.025, boundary = 0, alpha=0.4, color="black", position="identity") +
+    theme_cowplot() +
+    xlab("statistic") +
+    scale_fill_manual(values=c("black", "purple"),
+                      labels = c(expression(P[i]),
+                                 expression("min("~P[i]/E[i]~",1)"))) +
+    theme(legend.position = c(0.3, 0.7), legend.title=element_blank(), legend.text.align = 0)
+
+all_panels <- plot_grid(hist_pvalue, hist_evalue, merged_hist, labels = c('A', 'B', 'C'), label_size = 12, nrow=1)
+all_panels
+```
+```{r}
+#| eval: false
+save_plot("evalue_weights.pdf", all_panels, base_height=4, base_width=13)
+```
+
+## Apply BH-type multiple testing methods
+
+
+
+
+```{r}
+alpha_level <- 0.01
+```
+
+Unweighted BH
+```{r}
+unweighted_bh_rjs <-sum(p.adjust(res$pvalue, method="BH") <= alpha_level)
+unweighted_bh_90_quantile <- 1
+unweighted_bh_avg <- 1
+c(rejections=unweighted_bh_rjs, 
+  avg_weight=unweighted_bh_avg, 
+  weight_quantile=unweighted_bh_90_quantile)
+```
+
+
+E-weighted BH
+```{r}
+eweighted_bh_rjs <- sum(p.adjust(res$pvalue / res$evalue, method="BH") <= alpha_level)
+eweighted_bh_90_quantile <- quantile(res$evalue, 0.9)
+eweighted_bh_avg <- mean(res$evalue)
+c(rejections=eweighted_bh_rjs, 
+  avg_weight=eweighted_bh_avg,
+  weight_quantile=eweighted_bh_90_quantile)
+```
+Weighted BH with normalized e-values
+```{r}
+normalized_weights <- res$evalue / mean(res$evalue)
+normalized_eweighted_bh_rjs <- sum(p.adjust(res$pvalue / normalized_weights, method="BH") <= alpha_level)
+normalized_eweighted_bh_90_quantile <- quantile(normalized_weights, 0.9)
+normalized_eweighted_bh_avg <- 1
+c(rejections=normalized_eweighted_bh_rjs, 
+  avg_weight=normalized_eweighted_bh_avg, 
+  weight_quantile=normalized_eweighted_bh_90_quantile)
+```
+
+IHW
+```{r}
+ihw_grouping_non_NA <- groups_by_filter(res$evalue[res$evalue != 1], 14)
+ihw_grouping <- factor(rep(0, nrow(res)), levels=0:14)
+ihw_grouping[res$evalue != 1] <- ihw_grouping_non_NA
+
+ihw_res <- ihw(res$pvalue, ihw_grouping, alpha=alpha_level)
+ihw_bh_rjs <- rejections(ihw_res)
+
+ihw_bh_90_quantile <- quantile(weights(ihw_res), 0.9)
+ihw_bh_avg <- 1
+c(rejections=ihw_bh_rjs,
+  avg_weight=ihw_bh_avg, 
+  weight_quantile=ihw_bh_90_quantile)
+```
+
+Single Index Modulated Multiple Testing
+```{r}
+sim_rjs <- sum(sim_mtp(res$pvalue, res$microarray_pvalue, alpha_level, Storey=FALSE))
+c(rejections=sim_rjs) 
+```
+
+
+
+
+## Apply Storey-type multiple testing methods
+
+
+
+
+Unweighted
+```{r}
+unweighted_storey_pi0 <- weighted_storey_pi0(res$pvalue, 1)
+unweighted_storey_rjs <- sum(tau_weighted_bh(res$pvalue, 1, Storey=TRUE) <= alpha_level)
+unweighted_storey_90_quantile <- 1/unweighted_storey_pi0
+unweighted_storey_avg <- 1/unweighted_storey_pi0
+c(rejections=unweighted_storey_rjs,
+  avg_weight=unweighted_storey_avg, 
+  weight_quantile=unweighted_storey_90_quantile)
+```
+
+E-value weights
+```{r}
+eweighted_storey_pi0 <- unweighted_storey_pi0
+eweighted_storey_rjs <- sum(ep_BH(res$pvalue, res$evalue, alpha_level, Storey=TRUE))
+eweighted_storey_90_quantile <- quantile(res$evalue, 0.9) / eweighted_storey_pi0
+eweighted_storey_avg <- mean(res$evalue) / eweighted_storey_pi0
+c(rejections=eweighted_storey_rjs,
+  avg_weight=eweighted_storey_avg, 
+  weight_quantile=eweighted_storey_90_quantile)
+```
+
+Weighted Storey with normalized e-values
+```{r}
+normalized_eweighted_storey_pi0 <- weighted_storey_pi0(res$pvalue, normalized_weights)
+normalized_eweighted_storey_rjs <- sum(normalized_wBH(res$pvalue, res$evalue, alpha_level, Storey=TRUE))
+normalized_eweighted_storey_90_quantile <- quantile(normalized_weights, 0.9) / normalized_eweighted_storey_pi0
+normalized_eweighted_storey_avg <- 1 / normalized_eweighted_storey_pi0
+c(rejections=normalized_eweighted_storey_rjs,
+  avg_weight=normalized_eweighted_storey_avg, 
+  weight_quantile=normalized_eweighted_storey_90_quantile)
+```
+
+IHW
+
+```{r}
+ihw_storey_res <- ihw(res$pvalue, ihw_grouping, alpha=alpha_level, null_proportion=TRUE)
+ihw_storey_rjs <- rejections(ihw_storey_res)
+
+ihw_storey_90_quantile <- quantile(weights(ihw_storey_res), 0.9)
+ihw_storey_avg <- mean(weights(ihw_storey_res))
+
+c(rejections=ihw_storey_rjs,
+  avg_weight=ihw_storey_avg, 
+  weight_quantile=ihw_storey_90_quantile)
+```
+
+Single Index Modulated Multiple Testing
+```{r}
+sim_storey_rjs <- sum(sim_mtp(res$pvalue, res$microarray_pvalue, alpha_level, Storey=TRUE))
+c(rejections=sim_storey_rjs) 
+```
+## Table of results
+
+
+
+```{r}
+latex_rownames <- c("Unweighted", 
+                    "E-value Weights",
+                    "Normalized E-value Weights", 
+                    "Indep. Hypothesis Weighting",
+                    "Single Index Modulated")
+latex_colnames <- c("Avg. Weight", "90\\% Weight", "Discoveries")
+```
+
+```{r}
+summary_tbl_bh <- data.frame(
+    Average =  c(unweighted_bh_avg, eweighted_bh_avg, normalized_eweighted_bh_avg, ihw_bh_avg, NA),
+    Quantile = c(unweighted_bh_90_quantile, eweighted_bh_90_quantile, normalized_eweighted_bh_90_quantile, ihw_bh_90_quantile, NA),
+    Discoveries = c(unweighted_bh_rjs, eweighted_bh_rjs, normalized_eweighted_bh_rjs, ihw_bh_rjs, sim_rjs)
+    )
+rownames(summary_tbl_bh) <- latex_rownames
+```
+
+```{r}
+summary_tbl_storey <- data.frame(
+    Average =  c(unweighted_storey_avg, eweighted_storey_avg, normalized_eweighted_storey_avg, ihw_storey_avg, NA),
+    Quantile = c(unweighted_storey_90_quantile, eweighted_storey_90_quantile, normalized_eweighted_storey_90_quantile, ihw_storey_90_quantile, NA),
+    Discoveries = c(unweighted_storey_rjs, eweighted_storey_rjs, normalized_eweighted_storey_rjs, ihw_storey_rjs, sim_storey_rjs)
+)
+rownames(summary_tbl_storey) <- latex_rownames
+```
+
+```{r}
+summary_tbl <- rbind(summary_tbl_bh, summary_tbl_storey)
+```
+
+```{r}
+kbl(summary_tbl, booktabs = T, digits=2, col.names=latex_colnames, format = 'html', escape = FALSE) %>%
+    pack_rows("Benjamini-Hochberg", 1, 5) %>%
+    pack_rows("Storey", 6, 10)
+```
+
+
+
+```{r}
+cat(kbl(summary_tbl, booktabs = T, digits=2, col.names=latex_colnames, format = 'latex', escape = FALSE) %>%
+    pack_rows("Benjamini-Hochberg", 1, 5) %>%
+    pack_rows("Storey", 6, 10))
+```
+
+# Session Info
+
+```{r}
+session_info()
+```
+
+
