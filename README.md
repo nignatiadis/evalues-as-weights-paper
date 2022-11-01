@@ -10,6 +10,10 @@ This repository contains the following:
 
 ## `EValueWeightsPaper` R package
 
+<!-- badges: start -->
+[![R-CMD-check](https://github.com/nignatiadis/evalues-as-weights-paper/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/nignatiadis/evalues-as-weights-paper/actions/workflows/R-CMD-check.yaml)
+<!-- badges: end -->
+
 A helper package with functions implementing the different methods evaluated as well as functions generating synthetic datasets for simulation experiments. It may be installed as follows:
 
 ```{r}
