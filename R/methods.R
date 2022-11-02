@@ -55,7 +55,7 @@ tau_weighted_bh <-
       tau <- min(tau, tau_pi0)
     }
     weighted_pvals <- divide_Ps_by_Ws(Ps, Ws)
-    weighted_pvals[Ps >= tau] <- Inf
+    weighted_pvals[Ps > tau] <- Inf
     adj_p <- stats::p.adjust(weighted_pvals, method = "BH")
     adj_p
   }

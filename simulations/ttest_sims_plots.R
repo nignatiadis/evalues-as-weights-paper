@@ -6,8 +6,8 @@ r <- readRDS(file="ttest_simulation_results_with_storey.Rds")
 
 
 res_r <-  bind_rows(r) %>%
-  group_by(weights, method, effect_size) %>%
-  dplyr::summarize(FDR = mean(FDP), Power=mean(pow)) %>%
+  group_by(weights, method, effect_size, alpha, evalue_ncp, m, pi0) %>%
+  dplyr::summarize(FDR = mean(FDP), Power=mean(pow), n=n(), sd_FDP = sd(FDP)) %>%
   arrange(effect_size, desc(Power)) %>%
   ungroup() %>%
   mutate(weights = case_when(
@@ -20,7 +20,6 @@ res_r <-  bind_rows(r) %>%
 merged_tbl <- res_r %>% pivot_wider(names_from=method, values_from=c(FDR, Power)) %>%
               mutate(power_ratio = Power_Storey/Power_BH, FDR_ratio = FDR_Storey/FDR_BH)
 
-ggplot(merged_tbl, aes(x=effect_size, y= power_ratio, col=weights)) + geom_line()  + ylim(1,2)
 
 # http://tsitsul.in/blog/coloropt/
 methods_list <- bind_rows(
@@ -28,7 +27,7 @@ methods_list <- bind_rows(
   tibble(weights = "ep-BH",   color="#4053d3"), #4053d3
   tibble(weights = "wBH", color="#ddb310"),
   tibble(weights = "IHW", color="#8c9fb7"),
-  tibble(weights = "SIM", color="#ff9287")  #color="#00bbad")
+  tibble(weights = "SIM", color="#ff9287")
 ) %>%
   mutate(weights=factor(weights, levels=weights))
 
@@ -42,9 +41,9 @@ single_panel <- function(res_sub, yaxis, ylabel=yaxis){
     geom_text_repel(data=dplyr::filter(res_sub,
                                        effect_size == 3),
                     aes(x = effect_size,
-                        y=!! sym(yaxis),
-                        col=weights,
-                        label=weights,
+                        y = !! sym(yaxis),
+                        col = weights,
+                        label = weights,
                         segment.square  = TRUE,
                         segment.inflect = TRUE),
                     segment.colour="darkgrey",
@@ -64,7 +63,7 @@ single_panel <- function(res_sub, yaxis, ylabel=yaxis){
     theme(legend.position="none",legend.title=element_blank())
   if (yaxis == "FDR"){
     sim_panel <- sim_panel +
-      geom_segment(x=1.0, xend=3.0, y=0.1, yend = 0.1, linetype= "dashed", color="black", alpha=0.3)
+      geom_segment(x=1.0, xend=3.0, y=0.1, yend = 0.1, linetype="dashed", color="black", alpha=0.3)
   }
   sim_panel
 }
@@ -84,18 +83,18 @@ main_fig_plot <- plot_grid(single_panel(dplyr::filter(res_r, method=="BH"), "FDR
 save_plot("ttest_sim_main.pdf", main_fig_plot, base_height=7, base_width=15)
 
 
-
+k <- 9
 evalue_plot <- function(chisq_stat){
-  stats::dchisq(chisq_stat, 9, ncp = 2.5) / stats::dchisq(chisq_stat, 9, ncp=0)
+  stats::dchisq(chisq_stat, k, ncp = 10) / stats::dchisq(chisq_stat, k, ncp=0)
 }
 chisq_stat <- seq(0.001, to=20, length=1000)
 #sanity check
-integrate(function(s) {evalue_plot(s)*dchisq(s, 9, ncp=0)}, 0, 1000)
+integrate(function(s) {evalue_plot(s)*dchisq(s, k, ncp=0)}, 0, 1000)
 
 e_vs_s_plot <- ggplot(tibble(x=chisq_stat, E=sapply(chisq_stat, evalue_plot)), aes(x=x, y=E)) +
   geom_line() +
-  xlab(expression(S[i])) +
-  ylab(expression(E[i])) +
+  xlab(expression(S[k])) +
+  ylab(expression(E[k])) +
   geom_vline(xintercept =  qchisq(0.5, k), color="gray", linetype="dashed") +
   theme_cowplot()
 

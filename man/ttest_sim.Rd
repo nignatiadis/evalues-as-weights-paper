@@ -6,6 +6,17 @@
 \usage{
 ttest_sim(m, pi0, effect_size, evalue_ncp = 2.5, n_samples = 10)
 }
+\arguments{
+\item{m}{Total number of hypotheses}
+
+\item{pi0}{Proportion of nulls}
+
+\item{effect_size}{Mean of alternative hypotheses}
+
+\item{evalue_ncp}{Noncentrality parameter used for calculation of e-values based on the likelihood ratio test}
+
+\item{n_samples}{Total number samples used for each t-test. Each group has n_samples/2 samples.}
+}
 \description{
-Small t-test simulation
+Generates data of two sample t-test simulation
 }

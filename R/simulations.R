@@ -1,6 +1,12 @@
 #' t-test simulation
 #'
-#' Small t-test simulation
+#' Generates data of two sample t-test simulation
+#'
+#' @param m   Total number of hypotheses
+#' @param pi0   Proportion of nulls
+#' @param effect_size Mean of alternative hypotheses
+#' @param evalue_ncp Noncentrality parameter used for calculation of e-values based on the likelihood ratio test
+#' @param n_samples Total number samples used for each t-test. Each group has n_samples/2 samples.
 #'
 #' @importFrom genefilter rowttests
 #' @importFrom genefilter rowSds

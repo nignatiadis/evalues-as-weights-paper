@@ -12,6 +12,7 @@ This repository contains the following:
 
 <!-- badges: start -->
 [![R-CMD-check](https://github.com/nignatiadis/evalues-as-weights-paper/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/nignatiadis/evalues-as-weights-paper/actions/workflows/R-CMD-check.yaml)
+[![Codecov test coverage](https://codecov.io/gh/nignatiadis/evalues-as-weights-paper/branch/main/graph/badge.svg)](https://app.codecov.io/gh/nignatiadis/evalues-as-weights-paper?branch=main)
 <!-- badges: end -->
 
 A helper package with functions implementing the different methods evaluated as well as functions generating synthetic datasets for simulation experiments. It may be installed as follows:
@@ -29,4 +30,4 @@ Code to reproduce the simulations is available in the folder `simulations`. The 
 
 ## Reproduction of data analysis
 
-See the `data_analysis` folder. The main analysis has been implemented in `bottomly.qmd` as a [quarto](notebook).
+See the `data_analysis` folder. The main analysis has been implemented in `bottomly.qmd` as a [quarto notebook](https://quarto.org/).
