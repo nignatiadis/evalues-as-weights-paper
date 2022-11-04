@@ -100,6 +100,11 @@ affy_ebayes_lm_fit_prop05 <- eBayes(affy_lm_fit, proportion = 0.5)
 expect_equal(setNames(affy_ebayes_lm_fit_prop05$lods[,2],NULL), log(res_df$evalue))
 
 # now check the limma_results_table_with_evalues function
+
+sum_tbl <- limma_results_table_with_evalues(affy_ebayes_lm_fit, "conditionB")
+expect_equal(sum_tbl$P.Value, res_df$filter_pvalue )
+expect_equal(sum_tbl$evalue, res_df$evalue )
+
 fit <- affy_ebayes_lm_fit
 coef <- "conditionB"
 
@@ -157,3 +162,8 @@ eval_se<- sd(rnaseq_sim_df_as_sim$evalue[rnaseq_sim_df_as_sim$H == 0])/sqrt(1000
 eval_mean <- mean(rnaseq_sim_df_as_sim$evalue[rnaseq_sim_df_as_sim$H == 0])
 
 expect_true( abs(eval_mean - 1 ) < 4*eval_se)
+
+
+expect_equal(rnaseq_sim_df_as_sim$mu0, sort(rnaseq_sim_df_as_sim$mu0, decreasing=TRUE))
+expect_equal(rnaseq_sim_df_as_sim$sigmai, sort(rnaseq_sim_df_as_sim$sigmai, decreasing=TRUE))
+

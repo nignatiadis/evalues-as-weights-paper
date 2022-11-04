@@ -35,6 +35,13 @@ Subset to the first two batches:
 ```{r}
 bottomly <- bottomly[, bottomly$batch %in% c("b4", "b6")]
 ```
+
+```{r}
+colData(bottomly)
+```
+```{r}
+table(bottomly$strain)
+```
 Run DESeq2 analysis.
 ```{r}
 dds <- DESeqDataSet(se=bottomly, design= ~ batch + strain)
@@ -43,6 +50,9 @@ res_bottomly <- as.data.frame(results(dds)) %>% filter(baseMean >= 0.2, !is.na(p
 head(res_bottomly)
 ```
 
+```{r}
+nrow(res_bottomly)
+```
 # Microarray analysis
 
 ## Download files
@@ -73,6 +83,11 @@ affy <- microarray[[1]]
 affy_pdata <- pData(affy)
 affy_fdata <- featureData(affy)
 rownames(affy_pdata) <- suppl_file_names
+# sanity check
+all(setNames(sapply(affy_pdata$supplementary_file, function(x) last(strsplit(x, "/")[[1]])), NULL) == rownames(affy_pdata))
+```
+
+```{r}
 affy_pdata <- AnnotatedDataFrame(affy_pdata)
 affy_pdata$gender <- factor(ifelse(affy_pdata$characteristics_ch1 == "gender: male", "male", "female"))
 affy_pdata$strain <-  factor(ifelse(affy_pdata$characteristics_ch1.1 == "strain: C57BL/6J", "C57BL", "DBA"))
@@ -107,14 +122,14 @@ anno_bottomly_no_of_matches <- group_by(anno_bottomly, PROBEID) %>%
     dplyr::summarize(is_na = any(is.na(ENSEMBL)),
                      no_of_matches = n_distinct(ENSEMBL))
 
-filtered_ids <- (anno_bottomly_no_of_matches$no_of_matches) == 1 &
+filtered_ids <- (anno_bottomly_no_of_matches$no_of_matches == 1) &
                 (!anno_bottomly_no_of_matches$is_na)
 
-
-rma_affy_filt <- rma_affy[filtered_ids, ]
+rma_affy_filt <- rma_affy[anno_bottomly_no_of_matches$PROBEID[filtered_ids], ]
+stopifnot(all(rownames(rma_affy[filtered_ids, ]) == rownames(rma_affy_filt)))
 ```
 
-Get the 1 to 1 matching of probe ids to ENSEMBL ids.
+Get the 1 to 1 matching of probe ids to ENSEMBL ids for filtered subset.
 ```{r}
 anno_bottomly_filt <- AnnotationDbi::select(mouse4302.db,
                                        keys = (featureNames(rma_affy_filt)),
@@ -129,11 +144,12 @@ When multiple probes match to the same ENSEMBL id, only keep the one with the la
 ```{r}
 A <- rowMeans(exprs(rma_affy_filt))
 o <- order(A, decreasing=TRUE)
-ordered_probe_ids <- rownames(rma_affy_filt[o])
 ordered_ensembl_id <- anno_bottomly_filt$ENSEMBL[o]
 d <- duplicated(ordered_ensembl_id)
 o_filt <- o[!d]
+```
 
+```{r}
 rma_affy_gene <- rma_affy_filt[o_filt, ]
 stopifnot(all(anno_bottomly_filt$PROBEID[o_filt] == rownames(rma_affy_gene)))
 rownames(rma_affy_gene) <- anno_bottomly_filt$ENSEMBL[o_filt]
@@ -141,49 +157,29 @@ rownames(rma_affy_gene) <- anno_bottomly_filt$ENSEMBL[o_filt]
 
 
 
-## PCA plot 
-
-```{r}
-pca_plot <- function(eset){
-    log_eset <- log2(Biobase::exprs(eset))
-    PCA_fit <- prcomp(t(log_eset), scale. = FALSE)
-    percent_var <- round(100*PCA_fit$sdev^2/sum(PCA_fit$sdev^2),1)
-    sd_ratio <- sqrt(percent_var[2] / percent_var[1])
-    dataGG <- data.frame(PC1 = PCA_fit$x[,1], PC2 = PCA_fit$x[,2],
-                     Strain = eset$strain)
-
-    ggplot(dataGG, aes(PC1, PC2)) +
-        geom_point(aes(shape = Strain, colour = Strain)) +
-        ggtitle("PCA plot of the log-transformed raw expression data") +
-        xlab(paste0("PC1, VarExp: ", percent_var[1], "%")) +
-        ylab(paste0("PC2, VarExp: ", percent_var[2], "%")) +
-        theme(plot.title = element_text(hjust = 0.5))+
-        coord_fixed(ratio = sd_ratio) +
-        scale_shape_manual(values = c(4,15)) +
-        scale_color_manual(values = c("darkorange2", "dodgerblue4"))
-}
-```
-
-```{r}
-pca_plot(rma_affy_gene)
-```
 
 ## LIMMA analysis
 
 ```{r}
 affy_design <- with(pData(rma_affy_gene), model.matrix( ~ strain))
+affy_design
+```
+```{r}
 affy_lm_fit <- lmFit(rma_affy_gene, affy_design)
 affy_ebayes_lm_fit <- eBayes(affy_lm_fit)
+```
+
+Parameter estimates of limma model:
+```{r}
+c(affy_ebayes_lm_fit$df.prior, affy_ebayes_lm_fit$s2.prior)
 ```
 
 The helper function below also computes the e-values.
 ```{r}
 affy_res <- limma_results_table_with_evalues(affy_ebayes_lm_fit, coef="strainDBA")
+stopifnot( max(abs(log(affy_res$evalue) - eBayes(affy_lm_fit,proportion=0.5)$lods[,2])) < 1e-12)
+head(affy_res)
 ```
-
-
-
-
 
 
 # Combined analysis
@@ -197,6 +193,14 @@ match_idx <- match(rownames(res_bottomly), rownames(affy_res))
 ```
 
 ```{r}
+c(sum(!is.na(match_idx)), sum(is.na(match_idx)))
+```
+
+```{r}
+c(rownames(res_bottomly)[1:3], rownames(affy_res)[match_idx[1:3]])
+```
+
+```{r}
 microarray_pvalues <- affy_res$P.Value[match_idx]
 ```
 
@@ -205,6 +209,9 @@ Set e-value of genes that did not have a match in the microarray dataset to 1:
 microarray_evalues <- affy_res$evalue[match_idx]
 microarray_evalues[is.na(microarray_evalues)] <- 1
 ```
+
+
+
 
 ```{r}
 res <- res_bottomly %>%
@@ -221,8 +228,7 @@ head(res)
 #| fig-height: 4
 #| fig-width: 13
 
-hist1 <- ggplot(res, aes(x = pvalue)) + geom_histogram(binwidth = 0.025, boundary = 0) + ylim(0, 6000)
-hist2 <- ggplot(res, aes(x = pe)) + geom_histogram(binwidth = 0.025, boundary = 0) + ylim(0, 6000)
+
 
 new_df <- rbind( data.frame( pvalue = res$pvalue, group="vanilla"),
                  data.frame( pvalue = res$pe, group="P/E")) %>%
@@ -233,7 +239,7 @@ hist_pvalue <- ggplot(res, aes(x = pvalue)) +
     xlab(expression(P[i])) + theme_cowplot()
 
 hist_evalue <- ggplot(filter(res, evalue !=1), aes(x = pmin(evalue,5))) +
-    geom_histogram(boundary=0.43, binwidth=0.1, alpha=0.4, color="black", fill="blue") +
+    geom_histogram(boundary=0.46, binwidth=0.1, alpha=0.4, color="black", fill="blue") +
     xlab(expression("min("~E[i]~", 5)")) +
     scale_x_continuous(breaks=c(0.43, 1, 2, 3, 4, 5)) +
     theme_cowplot()
@@ -279,6 +285,7 @@ c(rejections=unweighted_bh_rjs,
 E-weighted BH
 ```{r}
 eweighted_bh_rjs <- sum(p.adjust(res$pvalue / res$evalue, method="BH") <= alpha_level)
+stopifnot(eweighted_bh_rjs == sum(ep_BH(res$pvalue, res$evalue, alpha_level) ))
 eweighted_bh_90_quantile <- quantile(res$evalue, 0.9)
 eweighted_bh_avg <- mean(res$evalue)
 c(rejections=eweighted_bh_rjs, 
@@ -289,6 +296,7 @@ Weighted BH with normalized e-values
 ```{r}
 normalized_weights <- res$evalue / mean(res$evalue)
 normalized_eweighted_bh_rjs <- sum(p.adjust(res$pvalue / normalized_weights, method="BH") <= alpha_level)
+stopifnot(normalized_eweighted_bh_rjs == sum(normalized_wBH(res$pvalue, res$evalue, alpha_level) ))
 normalized_eweighted_bh_90_quantile <- quantile(normalized_weights, 0.9)
 normalized_eweighted_bh_avg <- 1
 c(rejections=normalized_eweighted_bh_rjs, 
@@ -296,7 +304,7 @@ c(rejections=normalized_eweighted_bh_rjs,
   weight_quantile=normalized_eweighted_bh_90_quantile)
 ```
 
-IHW
+IHW: apply it in such a way that hypotheses that did not appear in the microarray experiment are treated as a separate categorical group.
 ```{r}
 ihw_grouping_non_NA <- groups_by_filter(res$evalue[res$evalue != 1], 14)
 ihw_grouping <- factor(rep(0, nrow(res)), levels=0:14)
@@ -314,7 +322,8 @@ c(rejections=ihw_bh_rjs,
 
 Single Index Modulated Multiple Testing
 ```{r}
-sim_rjs <- sum(sim_mtp(res$pvalue, res$microarray_pvalue, alpha_level, Storey=FALSE))
+sim_mtp_res <- sim_mtp(res$pvalue, res$microarray_pvalue, alpha_level, Storey=FALSE)
+sim_rjs <- sum(sim_mtp_res)
 c(rejections=sim_rjs) 
 ```
 

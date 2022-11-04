@@ -71,7 +71,7 @@ rnaseq_microarray_sim <- function(K, m, mean_disp_pairs, prop_signal_microarray=
   stopifnot(m %% 2 == 0)
   stopifnot(K >= 20)
 
-  K_alt <- floor(K * 8/10)
+  K_null <- floor(K * 8/10)
 
   mhalf <- m/2
   condition <- factor(rep(c("A","B"), each = mhalf))
@@ -79,7 +79,7 @@ rnaseq_microarray_sim <- function(K, m, mean_disp_pairs, prop_signal_microarray=
   x <- model.matrix(~condition)
 
   # Count data simulation and analysis via DESeq2
-  beta <- c(rep(0, K_alt), sample(c(-es,es), K - K_alt, TRUE))
+  beta <- c(rep(0, K_null), sample(c(-es,es), K - K_null, TRUE))
   H <- beta != 0
   sampled_rows <- sample(1:nrow(mean_disp_pairs), K, replace=TRUE)
   mu0 <- mean_disp_pairs[sampled_rows,1]

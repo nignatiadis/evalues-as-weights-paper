@@ -6,8 +6,8 @@ r <- readRDS(file="rnaseq_microarray_simulation_results.Rds")
 
 
 res_r <-  bind_rows(r) %>%
-  group_by(weights, method, es, prop_signal_microarray) %>%
-  dplyr::summarize(FDR = mean(FDP), Power=mean(pow)) %>%
+  group_by(weights, method, es, prop_signal_microarray, alpha, gamma, m, K) %>%
+  dplyr::summarize(FDR = mean(FDP), Power=mean(pow), n=n()) %>%
   ungroup() %>%
   mutate(prop_signal_microarray = factor(prop_signal_microarray, levels=c(1.0, 0.5, 0.0))) %>%
   mutate(weights = case_when(
@@ -64,12 +64,6 @@ single_panel <- function(res_sub, yaxis, ylabel=yaxis){
   sim_panel
 }
 
-
-power_bh_methods <- single_panel(filter(res_r, method=="BH"), "Power")
-fdr_bh_methods <- single_panel(filter(res_r, method=="BH"), "FDR")
-
-save_plot("rnaseq_sim_main.pdf", power_bh_methods, base_height=4, base_width=15)
-save_plot("rnaseq_sim_main.pdf", fdr_bh_methods, base_height=4, base_width=15)
 
 
 rna_seq_main_fig_plot <- plot_grid(single_panel(filter(res_r, method=="BH"), "FDR"),
