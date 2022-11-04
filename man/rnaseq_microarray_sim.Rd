@@ -15,6 +15,24 @@ rnaseq_microarray_sim(
   prior_s2 = 0.0144
 )
 }
+\arguments{
+\item{K}{Integer, number of hypotheses/genes}
+
+\item{m}{Total number samples (which is assumed to be the same for RNA-Seq and microarray data).
+Each group of the two-group comparison has m/2 samples.}
+
+\item{prop_signal_microarray}{Number in [0, 1] (default: 0.5):What proportion
+of genes differentially expressed in the RNA-Seq synthetic data are also
+differentially expressed in the synthetic microarray data?}
+
+\item{es}{Number, binary logarithmic fold change for differentially expressed genes in RNASeq data}
+
+\item{gamma}{Number, determines strength of effect sizes for alternative genes (for synthetic microarray data)}
+
+\item{prior_s2}{Number, Prior variance}
+
+\item{prior_df}{Number, Degrees of freedom for the prior of the inverse variances (for synthetic microarray data)}
+}
 \description{
-RNA-Seq & Microarray simulation
+A two-sample comparison based on both sources of information.
 }

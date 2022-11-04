@@ -9,11 +9,13 @@
 #'
 #' @export
 limma_evalue <- function( tstat, d, d0, gamma){
-  ratio <- d0*tstat^2/(gamma+d0)/(d + d0 + tstat^2)
-  exponent <- - (d + d0 + 1)/2
-  sqrt(gamma)/sqrt(gamma + d0)* (1-ratio)^exponent
+  dtot <- d + d0
+  ratio_num <- gamma*tstat^2
+  ratio_denom <- (1+gamma)*(dtot + tstat^2)
+  ratio <- ratio_num / ratio_denom
+  exponent <- - (dtot + 1)/2
+  1/sqrt(gamma + 1)* (1-ratio)^exponent
 }
-
 
 #' Results table for LIMMA analysis that also includes e-values
 #'
@@ -45,9 +47,6 @@ limma_results_table_with_evalues <- function(fit, coef){
     #	Extract statistics for table
     M <- fit$coefficients[,coef]
 
-    ebcols <- c("t","p.value","lods")
-
-
     tstat <- as.matrix(fit$t)[,coef]
     P.Value <- as.matrix(fit$p.value)[,coef]
     B <- as.matrix(fit$lods)[,coef]
@@ -56,14 +55,15 @@ limma_results_table_with_evalues <- function(fit, coef){
     prior_s2 <- fit$s2.prior
     gamma_hat_init <-  fit$var.prior[coef_idx]
 
-    refit_eb <- limma::eBayes(fit, proportion=1)
+    refit_eb <- limma::eBayes(fit, proportion=0.5)
     gamma_hat_prop1 <- refit_eb$var.prior[coef_idx]
+    gamma_adjusted <- gamma_hat_prop1 / fit$stdev.unscaled[1,coef_idx]^2
 
     tab <- data.frame(t=tstat,P.Value=P.Value, B=B,
                       data_dof = data_dof)
     rownames(tab) <- rn
 
-    evals <- mapply(limma_evalue, tab$t, tab$data_dof, prior_dof, gamma_hat_prop1)
+    evals <- mapply(limma_evalue, tab$t, tab$data_dof, prior_dof, gamma_adjusted)
     tab$evalue <- evals
 
     attr(tab, "prior_dof") <- prior_dof
