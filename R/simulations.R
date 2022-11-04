@@ -50,12 +50,14 @@ ttest_sim <- function(m, pi0, effect_size, evalue_ncp=2.5, n_samples=10){
 #' @param K Integer, number of hypotheses/genes
 #' @param m Total number samples (which is assumed to be the same for RNA-Seq and microarray data).
 #' Each group of the two-group comparison has m/2 samples.
+#' @param mean_disp_pairs Dataframe with columns mean and disp that provide realistic values of the mean and dispersion of RNASeq count data.
+#' See \link{meanDispPairs}.
 #' @param prop_signal_microarray Number in [0, 1] (default: 0.5):What proportion
 #' of genes differentially expressed in the RNA-Seq synthetic data are also
 #' differentially expressed in the synthetic microarray data?
 #' @param es Number, binary logarithmic fold change for differentially expressed genes in RNASeq data
 #' @param gamma Number, determines strength of effect sizes for alternative genes (for synthetic microarray data)
-#' @param prior_df Number, Degrees of freedom for the prior of the inverse variances (for synthetic microarray data)
+#' @param prior_dof Number, Degrees of freedom for the prior of the inverse variances (for synthetic microarray data)
 #' @param prior_s2 Number, Prior variance
 #'
 #' @importFrom DESeq2 DESeqDataSetFromMatrix DESeq results
@@ -96,7 +98,7 @@ rnaseq_microarray_sim <- function(K, m, mean_disp_pairs, prop_signal_microarray=
   # Replicated microarray data simulation and analysis via DESeq2
 
   sigmai <- sqrt(prior_s2*prior_dof/rchisq(K,df=prior_dof))
-  sigmai <- sort(sigmai, decreasing=TRUE) ###
+  sigmai <- sort(sigmai, decreasing=TRUE)
 
   y_microarray <- matrix(rnorm(K*m,sd=sigmai), nrow=K)
   rownames(y_microarray) <- paste("Gene",1:nrow(y_microarray))

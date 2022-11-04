@@ -153,3 +153,7 @@ bh_rjs <- p.adjust(rnaseq_sim_df_as_sim$pvalue, method="BH") <= 0.05
 
 expect_equal(fdp_eval(rnaseq_sim_df_as_sim$H, bh_rjs), dplyr::select(filter(tmp_res, method=="BH", weights=="Unweighted"), c(rjs, pow, FDP, FWER)))
 
+eval_se<- sd(rnaseq_sim_df_as_sim$evalue[rnaseq_sim_df_as_sim$H == 0])/sqrt(10000)
+eval_mean <- mean(rnaseq_sim_df_as_sim$evalue[rnaseq_sim_df_as_sim$H == 0])
+
+expect_true( abs(eval_mean - 1 ) < 4*eval_se)

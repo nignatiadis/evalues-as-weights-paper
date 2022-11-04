@@ -21,6 +21,9 @@ rnaseq_microarray_sim(
 \item{m}{Total number samples (which is assumed to be the same for RNA-Seq and microarray data).
 Each group of the two-group comparison has m/2 samples.}
 
+\item{mean_disp_pairs}{Dataframe with columns mean and disp that provide realistic values of the mean and dispersion of RNASeq count data.
+See \link{meanDispPairs}.}
+
 \item{prop_signal_microarray}{Number in [0, 1] (default: 0.5):What proportion
 of genes differentially expressed in the RNA-Seq synthetic data are also
 differentially expressed in the synthetic microarray data?}
@@ -29,9 +32,9 @@ differentially expressed in the synthetic microarray data?}
 
 \item{gamma}{Number, determines strength of effect sizes for alternative genes (for synthetic microarray data)}
 
-\item{prior_s2}{Number, Prior variance}
+\item{prior_dof}{Number, Degrees of freedom for the prior of the inverse variances (for synthetic microarray data)}
 
-\item{prior_df}{Number, Degrees of freedom for the prior of the inverse variances (for synthetic microarray data)}
+\item{prior_s2}{Number, Prior variance}
 }
 \description{
 A two-sample comparison based on both sources of information.
