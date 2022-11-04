@@ -93,8 +93,8 @@ integrate(function(s) {evalue_plot(s)*dchisq(s, k, ncp=0)}, 0, 1000)
 
 e_vs_s_plot <- ggplot(tibble(x=chisq_stat, E=sapply(chisq_stat, evalue_plot)), aes(x=x, y=E)) +
   geom_line() +
-  xlab(expression(S[k])) +
-  ylab(expression(E[k])) +
+  xlab(expression(s[k])) +
+  ylab(expression(e[k])) +
   geom_vline(xintercept =  qchisq(0.5, k), color="gray", linetype="dashed") +
   theme_cowplot()
 

@@ -241,7 +241,7 @@ hist_pvalue <- ggplot(res, aes(x = pvalue)) +
 hist_evalue <- ggplot(filter(res, evalue !=1), aes(x = pmin(evalue,5))) +
     geom_histogram(boundary=0.46, binwidth=0.1, alpha=0.4, color="black", fill="blue") +
     xlab(expression("min("~E[i]~", 5)")) +
-    scale_x_continuous(breaks=c(0.43, 1, 2, 3, 4, 5)) +
+    scale_x_continuous(breaks=c(0.46, 1, 2, 3, 4, 5)) +
     theme_cowplot()
 
 
