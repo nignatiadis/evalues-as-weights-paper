@@ -188,3 +188,35 @@ normalized_wBH <- function(Ps, Es, alpha, Storey = FALSE) {
   adj_p <- tau_weighted_bh(Ps, normalized_weights, Storey = Storey)
   adj_p <= alpha
 }
+
+#' @importFrom stats pchisq
+fisher_combiner <- function(p1, p2){
+  chisq <- (-2) * (log(p1) + log(p2))
+  df <- 2 * 2
+  pchisq(chisq, df, lower.tail = FALSE, log.p = FALSE)
+}
+
+#' Fisher combination followed by BH
+#'
+#' @param pvalues   Numeric vector of unadjusted p-values.
+#' @param pvalues2   Numeric vector of secondary unadjusted p-values.
+#' @param alpha   Significance level at which to apply method
+#' @param Storey  Bool (default: FALSE): is the procedure pi0 adaptive or not?
+#'
+#' @return Binary vector of rejected/non-rejected hypotheses.
+#'
+#' @export
+fisher_BH <-
+  function(pvalues,
+           pvalues2,
+           alpha,
+           Storey = FALSE) {
+    is_na_secondary_idx <- is.na(pvalues2)
+
+    p <- fisher_combiner(pvalues, pvalues2)
+    p[is_na_secondary_idx] <- pvalues[is_na_secondary_idx]
+
+    adj_p <- tau_weighted_bh(p, 1, Storey = Storey)
+    adj_p <= alpha
+}
+
