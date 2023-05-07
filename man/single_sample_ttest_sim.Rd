@@ -21,10 +21,14 @@ single_sample_ttest_sim(
 
 \item{effect_size}{Mean of alternative hypotheses}
 
-\item{n_samples}{Total number samples used for each t-test. Each group has n_samples/2 samples.}
+\item{n_samples}{Total number samples used for each t-test.}
 
-\item{evalue_ncp}{Noncentrality parameter used for calculation of e-values based on the likelihood ratio test}
+\item{var_halfrange}{The population variances of the data for each test are drawn from the uniform distribution on 1-var_halfrange, 1+var_halfrange. Defaults to var_halfrange=0, i.e., all population variances are equal to 1.}
+
+\item{evalue_ncp}{Noncentrality parameter used for calculation of e-values based on the approximate likelihood ratio test.}
+
+\item{L}{Highest monomial degree to keep in the Taylor expansion of the likelihood ratio e-value (default: L=6).}
 }
 \description{
-Generates data of two sample t-test simulation
+Generates data of single sample t-test simulation
 }
