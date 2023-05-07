@@ -16,15 +16,18 @@ res_r <-  bind_rows(r) %>%
     TRUE ~ weights)
   )
 
+
 # http://tsitsul.in/blog/coloropt/
 methods_list <- bind_rows(
   tibble(weights = "Unweighted", color="#00beff"),
-  tibble(weights = "ep-BH",   color="#4053d3"), #4053d3
+  tibble(weights = "ep-BH",   color="#4053d3"),
   tibble(weights = "wBH", color="#ddb310"),
   tibble(weights = "IHW", color="#8c9fb7"),
-  tibble(weights = "SIM", color="#ff9287")  #color="#00bbad")
+  tibble(weights = "SIM", color="#ff9287"),
+  tibble(weights = "Fisher", color="#b80058" )
 ) %>%
   mutate(weights=factor(weights, levels=weights))
+
 
 method_colors <- with(methods_list, setNames(color, weights))
 
@@ -43,7 +46,7 @@ single_panel <- function(res_sub, yaxis, ylabel=yaxis){
                         segment.inflect = TRUE),
                     segment.colour="darkgrey",
                     force = 1,
-                    nudge_x           = 0.8,
+                    nudge_x           = 0.3,
                     direction         = "y",
                     segment.size      = 0.2,
                     segment.curvature = -0.002,
@@ -51,7 +54,7 @@ single_panel <- function(res_sub, yaxis, ylabel=yaxis){
                     min.segment.length = 0) +
     geom_line(size=0.7, alpha=0.75) +
     scale_color_manual(values=method_colors) +
-    scale_x_continuous(breaks = seq(0.3, to=0.9, by=0.2), limits=c(0.3, 1.1)) +
+    scale_x_continuous(breaks = seq(0.3, to=0.9, by=0.2), limits=c(0.3, 1.25)) +
     facet_grid(.~prop_signal_microarray, labeller=label_bquote(cols = pi[M]*' = '*.(as.character(prop_signal_microarray))))   +
     ylab(ylabel) +
     xlab(expression(xi)) +

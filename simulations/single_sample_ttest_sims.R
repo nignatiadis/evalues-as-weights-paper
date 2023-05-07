@@ -1,5 +1,5 @@
 library(doParallel)
-registerDoParallel(cores=4)
+registerDoParallel(cores=3)
 library(doRNG)
 library(tidyverse)
 library(EValueWeightsPaper)

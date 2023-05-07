@@ -91,7 +91,18 @@ chisq_stat <- seq(0.001, to=20, length=1000)
 #sanity check
 integrate(function(s) {evalue_plot(s)*dchisq(s, k, ncp=0)}, 0, 1000)
 
-e_vs_s_plot <- ggplot(tibble(x=chisq_stat, E=sapply(chisq_stat, evalue_plot)), aes(x=x, y=E)) +
+approx_evalue_fun <- function(chisq_stat, L=5, ncp=10, dof=k){
+  ks = 0:L
+  sum(exp(-ncp/2)*(ncp/2)^ks / factorial(ks) * (chisq_stat/2)^ks * gamma(dof/2) / gamma((dof/2) + ks))
+}
+
+e_tibble = bind_rows(tibble(x=chisq_stat, E=sapply(chisq_stat, evalue_plot), L="Infty"),
+                     tibble(x=chisq_stat, E=sapply(chisq_stat, approx_evalue_fun, L=3), L="3"),
+                     tibble(x=chisq_stat, E=sapply(chisq_stat, approx_evalue_fun, L=5), L="5"),
+                     tibble(x=chisq_stat, E=sapply(chisq_stat, approx_evalue_fun, L=7), L="7"))
+
+
+e_vs_s_plot <- ggplot(e_tibble, aes(x=x, y=E, colour=L)) +
   geom_line() +
   xlab(expression(s[k])) +
   ylab(expression(e[k])) +
@@ -99,5 +110,8 @@ e_vs_s_plot <- ggplot(tibble(x=chisq_stat, E=sapply(chisq_stat, evalue_plot)), a
   theme_cowplot()
 
 e_vs_s_plot
+
+
+
 save_plot("E_vs_S.pdf", e_vs_s_plot, base_height=3, base_width=6)
 

@@ -66,17 +66,20 @@ approx_evalue_fun <- function(chisq_stat, demeaned_chisq_stat, L=6, ncp=10, dof=
 #' @importFrom stats rnorm dchisq pchisq
 #' @export
 single_sample_ttest_sim <- function(m, pi0, effect_size, n_samples=10, var_halfrange=0.0, evalue_ncp=10, L=6){
-  stopifnot( (pi0 < 1) & (pi0 > 0))
+  stopifnot( pi0 > 0)
   stopifnot( (var_halfrange < 1) & (var_halfrange >= 0))
 
   sigmas_squared <- runif(m, 1-var_halfrange, 1+var_halfrange)
+  z_table <- matrix(stats::rnorm(n_samples*m), ncol=n_samples) * sqrt(sigmas_squared)
+  H <- rep(0,m)
 
   m0 <- ceiling(m*pi0)
-  false_nulls <- sample(1:m, m-m0)
-  z_table <- matrix(stats::rnorm(n_samples*m), ncol=n_samples) * sqrt(sigmas_squared)
-  z_table[false_nulls, 1:n_samples] <- z_table[false_nulls, 1:n_samples] + effect_size
-  H <- rep(0,m)
-  H[false_nulls] <- 1
+  if (m0 < m){
+    false_nulls <- sample(1:m, m-m0)
+    z_table[false_nulls, 1:n_samples] <- z_table[false_nulls, 1:n_samples] + effect_size
+    H[false_nulls] <- 1
+  }
+
   ttests <- rowttests(z_table)
   demeaned_vars <- rowVars(z_table)
   vars <- rowMeans(z_table^2)
@@ -88,25 +91,16 @@ single_sample_ttest_sim <- function(m, pi0, effect_size, n_samples=10, var_halfr
   demeaned_chisq_stat  <- demeaned_chisq_dof * demeaned_vars
 
   filter_pvalue <- stats::pchisq(chisq_stat, chisq_dof, lower.tail=FALSE)
-
-  oracle_evalue_fun <- function(x){
-    stats::dchisq(x, chisq_dof, ncp = evalue_ncp) / stats::dchisq(x, chisq_dof, ncp=0)
-  }
-
-  oracle_evalue <- sapply(chisq_stat, oracle_evalue_fun)
-  evalue <- approx_evalue_fun(chisq_stat, demeaned_chisq_stat, dof=chisq_dof, L=6, ncp =evalue_ncp)
+  evalue <- approx_evalue_fun(chisq_stat, demeaned_chisq_stat, dof=chisq_dof, L=L, ncp=evalue_ncp)
 
   simDf <- data.frame(H=H,
                       pvalue= ttests$p.value,
                       filter_pvalue=filter_pvalue,
                       evalue=evalue,
-                      oracle_evalue=oracle_evalue,
-                      var = vars,
                       chisq_stat = chisq_stat,
                       demeaned_chisq_stat = demeaned_chisq_stat,
                       chisq_dof = chisq_dof,
                       demenead_chisq_dof = demeaned_chisq_dof)
-  attr(simDf, "oracle_evalue_fun") <- oracle_evalue_fun
   simDf
 }
 

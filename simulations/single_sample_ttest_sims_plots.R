@@ -50,15 +50,15 @@ single_panel <- function(res_sub, yaxis, ylabel=yaxis){
                         segment.inflect = TRUE),
                     segment.colour="darkgrey",
                     force = 1,
-                    nudge_x           = 0.2,
+                    nudge_x           = 0.3,
                     direction         = "y",
                     segment.size      = 0.1,
                     segment.curvature = -0.001,
                     max.overlaps=Inf,
                     min.segment.length = 0) +
-    geom_line(size=0.7, alpha=0.75) +
+    geom_line(linewidth=0.7, alpha=0.75) +
     scale_color_manual(values=method_colors) +
-    scale_x_continuous(breaks = seq(0.5, to=1.5, by=0.25), limits=c(0.5, 1.8)) +
+    scale_x_continuous(breaks = seq(0.5, to=1.5, by=0.25), limits=c(0.5, 1.9)) +
     ylab(ylabel) +
     xlab(expression(xi)) +
     theme_cowplot() +
@@ -81,6 +81,16 @@ main_fig_plot <- plot_grid(single_panel(dplyr::filter(res_r, method=="BH"), "FDR
                            nrow = 2,
                            labels=c("A","B", "C", "D", "E", "F"))
 
-single_panel(dplyr::filter(res_r_all, method=="BH"),  "FDR", "FDR(BH)") + facet_grid(.~var_halfrange)
-single_panel(dplyr::filter(res_r_all, method=="BH"),  "Power", "Power(BH)") + facet_grid(.~var_halfrange)
+save_plot("ttest_sim_main.pdf", main_fig_plot, base_height=7, base_width=15)
 
+
+res_var <- filter(res_r_all, var_halfrange > 0)
+second_fig <- plot_grid(
+single_panel(dplyr::filter(res_var, method=="BH"),  "FDR", "FDR(BH)") + facet_grid(.~var_halfrange, labeller = label_bquote(cols=tau==.(var_halfrange))),
+single_panel(dplyr::filter(res_var, method=="BH"),  "Power", "Power(BH)") + facet_grid(.~var_halfrange, labeller = label_bquote(cols=tau==.(var_halfrange))),
+nrow=2,
+labels = c("A", "B"))
+
+save_plot("ttest_sim_heterogeneous.pdf", second_fig, base_height=7, base_width=15)
+
+#labeller=label_bquote(cols = pi[M]*' = '*.(as.character(prop_signal_microarray))
