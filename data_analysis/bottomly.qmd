@@ -236,11 +236,11 @@ new_df <- rbind( data.frame( pvalue = res$pvalue, group="vanilla"),
 
 hist_pvalue <- ggplot(res, aes(x = pvalue)) +
     geom_histogram(binwidth = 0.025, boundary = 0, alpha=0.4, color="black", fill="black") +
-    xlab(expression(P[i])) + theme_cowplot()
+    xlab(expression(P[k])) + theme_cowplot()
 
 hist_evalue <- ggplot(filter(res, evalue !=1), aes(x = pmin(evalue,5))) +
     geom_histogram(boundary=0.46, binwidth=0.1, alpha=0.4, color="black", fill="blue") +
-    xlab(expression("min("~E[i]~", 5)")) +
+    xlab(expression("min("~E[k]~", 5)")) +
     scale_x_continuous(breaks=c(0.46, 1, 2, 3, 4, 5)) +
     theme_cowplot()
 
@@ -250,8 +250,8 @@ merged_hist <- ggplot(new_df, aes(x = pvalue, fill = group)) +
     theme_cowplot() +
     xlab("statistic") +
     scale_fill_manual(values=c("black", "purple"),
-                      labels = c(expression(P[i]),
-                                 expression("min("~P[i]/E[i]~",1)"))) +
+                      labels = c(expression(P[k]),
+                                 expression("min("~P[k]/E[k]~",1)"))) +
     theme(legend.position = c(0.3, 0.7), legend.title=element_blank(), legend.text.align = 0)
 
 all_panels <- plot_grid(hist_pvalue, hist_evalue, merged_hist, labels = c('A', 'B', 'C'), label_size = 12, nrow=1)
@@ -324,10 +324,18 @@ Single Index Modulated Multiple Testing
 ```{r}
 sim_mtp_res <- sim_mtp(res$pvalue, res$microarray_pvalue, alpha_level, Storey=FALSE)
 sim_rjs <- sum(sim_mtp_res)
-c(rejections=sim_rjs) 
+c(rejections = sim_rjs) 
 ```
 
-
+Fisher Benjamini-Hochberg
+```{r}
+fisher_bh_pvalue_rjs <- sum(fisher_BH(res$pvalue, res$microarray_pvalue, alpha_level, Storey=FALSE))
+c(rejections = fisher_bh_pvalue_rjs)
+```
+```{r}
+fisher_bh_evalue_rjs <- sum(fisher_BH(res$pvalue, pmin(1/res$evalue, 1), alpha_level, Storey=FALSE))
+c(rejections = fisher_bh_evalue_rjs)
+```
 
 
 ## Apply Storey-type multiple testing methods
@@ -387,6 +395,18 @@ Single Index Modulated Multiple Testing
 sim_storey_rjs <- sum(sim_mtp(res$pvalue, res$microarray_pvalue, alpha_level, Storey=TRUE))
 c(rejections=sim_storey_rjs) 
 ```
+
+Fisher Benjamini-Hochberg
+```{r}
+fisher_storey_pvalue_rjs <- sum(fisher_BH(res$pvalue, res$microarray_pvalue, alpha_level, Storey=TRUE))
+c(rejections = fisher_storey_pvalue_rjs)
+```
+```{r}
+fisher_storey_evalue_rjs <- sum(fisher_BH(res$pvalue, pmin(1/res$evalue, 1), alpha_level, Storey=TRUE))
+c(rejections = fisher_storey_evalue_rjs)
+```
+
+
 ## Table of results
 
 
@@ -396,24 +416,25 @@ latex_rownames <- c("Unweighted",
                     "E-value Weights",
                     "Normalized E-value Weights", 
                     "Indep. Hypothesis Weighting",
-                    "Single Index Modulated")
+                    "Single Index Modulated",
+                    "Fisher")
 latex_colnames <- c("Avg. Weight", "90\\% Weight", "Discoveries")
 ```
 
 ```{r}
 summary_tbl_bh <- data.frame(
-    Average =  c(unweighted_bh_avg, eweighted_bh_avg, normalized_eweighted_bh_avg, ihw_bh_avg, NA),
-    Quantile = c(unweighted_bh_90_quantile, eweighted_bh_90_quantile, normalized_eweighted_bh_90_quantile, ihw_bh_90_quantile, NA),
-    Discoveries = c(unweighted_bh_rjs, eweighted_bh_rjs, normalized_eweighted_bh_rjs, ihw_bh_rjs, sim_rjs)
+    Average =  c(unweighted_bh_avg, eweighted_bh_avg, normalized_eweighted_bh_avg, ihw_bh_avg, NA, NA),
+    Quantile = c(unweighted_bh_90_quantile, eweighted_bh_90_quantile, normalized_eweighted_bh_90_quantile, ihw_bh_90_quantile, NA, NA),
+    Discoveries = c(unweighted_bh_rjs, eweighted_bh_rjs, normalized_eweighted_bh_rjs, ihw_bh_rjs, sim_rjs,fisher_bh_pvalue_rjs)
     )
 rownames(summary_tbl_bh) <- latex_rownames
 ```
 
 ```{r}
 summary_tbl_storey <- data.frame(
-    Average =  c(unweighted_storey_avg, eweighted_storey_avg, normalized_eweighted_storey_avg, ihw_storey_avg, NA),
-    Quantile = c(unweighted_storey_90_quantile, eweighted_storey_90_quantile, normalized_eweighted_storey_90_quantile, ihw_storey_90_quantile, NA),
-    Discoveries = c(unweighted_storey_rjs, eweighted_storey_rjs, normalized_eweighted_storey_rjs, ihw_storey_rjs, sim_storey_rjs)
+    Average =  c(unweighted_storey_avg, eweighted_storey_avg, normalized_eweighted_storey_avg, ihw_storey_avg, NA, NA),
+    Quantile = c(unweighted_storey_90_quantile, eweighted_storey_90_quantile, normalized_eweighted_storey_90_quantile, ihw_storey_90_quantile, NA, NA),
+    Discoveries = c(unweighted_storey_rjs, eweighted_storey_rjs, normalized_eweighted_storey_rjs, ihw_storey_rjs, sim_storey_rjs, fisher_storey_pvalue_rjs)
 )
 rownames(summary_tbl_storey) <- latex_rownames
 ```
@@ -424,16 +445,16 @@ summary_tbl <- rbind(summary_tbl_bh, summary_tbl_storey)
 
 ```{r}
 kbl(summary_tbl, booktabs = T, digits=2, col.names=latex_colnames, format = 'html', escape = FALSE) %>%
-    pack_rows("Benjamini-Hochberg", 1, 5) %>%
-    pack_rows("Storey", 6, 10)
+    pack_rows("Benjamini-Hochberg", 1, 7) %>%
+    pack_rows("Storey", 7, 12)
 ```
 
 
 
 ```{r}
 cat(kbl(summary_tbl, booktabs = T, digits=2, col.names=latex_colnames, format = 'latex', escape = FALSE) %>%
-    pack_rows("Benjamini-Hochberg", 1, 5) %>%
-    pack_rows("Storey", 6, 10))
+    pack_rows("Benjamini-Hochberg", 1, 7) %>%
+    pack_rows("Storey", 7, 12))
 ```
 
 # Session Info

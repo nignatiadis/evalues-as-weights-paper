@@ -43,6 +43,69 @@ ttest_sim <- function(m, pi0, effect_size, evalue_ncp=2.5, n_samples=10){
   simDf
 }
 
+approx_evalue_fun <- function(chisq_stat, demeaned_chisq_stat, L=6, ncp=10, dof=dof, demeaned_dof=dof-1){
+  ks <- 0:L
+  evalues <- sapply(chisq_stat, function(s) sum(exp(-ncp/2)*(ncp/2)^ks / factorial(ks) * (s/2)^ks * gamma(dof/2) / gamma((dof/2) + ks)))
+  unb_evalue_exns <- sapply(demeaned_chisq_stat, function(s) sum(exp(-ncp/2)*(ncp/2)^ks / factorial(ks) * (s/2)^ks * gamma(demeaned_dof/2) / gamma((demeaned_dof/2) + ks)))
+  evalues / mean(unb_evalue_exns)
+}
+
+
+#' single sample t-test simulation
+#'
+#' Generates data of two sample t-test simulation
+#'
+#' @param m   Total number of hypotheses
+#' @param pi0   Proportion of nulls
+#' @param effect_size Mean of alternative hypotheses
+#' @param evalue_ncp Noncentrality parameter used for calculation of e-values based on the likelihood ratio test
+#' @param n_samples Total number samples used for each t-test. Each group has n_samples/2 samples.
+#'
+#' @importFrom genefilter rowttests
+#' @importFrom genefilter rowVars
+#' @importFrom stats rnorm dchisq pchisq
+#' @export
+single_sample_ttest_sim <- function(m, pi0, effect_size, n_samples=10, var_halfrange=0.0, evalue_ncp=10, L=6){
+  stopifnot( pi0 > 0)
+  stopifnot( (var_halfrange < 1) & (var_halfrange >= 0))
+
+  sigmas_squared <- runif(m, 1-var_halfrange, 1+var_halfrange)
+  z_table <- matrix(stats::rnorm(n_samples*m), ncol=n_samples) * sqrt(sigmas_squared)
+  H <- rep(0,m)
+
+  m0 <- ceiling(m*pi0)
+  if (m0 < m){
+    false_nulls <- sample(1:m, m-m0)
+    z_table[false_nulls, 1:n_samples] <- z_table[false_nulls, 1:n_samples] + effect_size
+    H[false_nulls] <- 1
+  }
+
+  ttests <- rowttests(z_table)
+  demeaned_vars <- rowVars(z_table)
+  vars <- rowMeans(z_table^2)
+
+  chisq_dof <- n_samples
+  chisq_stat <- chisq_dof * vars
+
+  demeaned_chisq_dof <- n_samples - 1
+  demeaned_chisq_stat  <- demeaned_chisq_dof * demeaned_vars
+
+  filter_pvalue <- stats::pchisq(chisq_stat, chisq_dof, lower.tail=FALSE)
+  evalue <- approx_evalue_fun(chisq_stat, demeaned_chisq_stat, dof=chisq_dof, L=L, ncp=evalue_ncp)
+
+  simDf <- data.frame(H=H,
+                      pvalue= ttests$p.value,
+                      filter_pvalue=filter_pvalue,
+                      evalue=evalue,
+                      chisq_stat = chisq_stat,
+                      demeaned_chisq_stat = demeaned_chisq_stat,
+                      chisq_dof = chisq_dof,
+                      demenead_chisq_dof = demeaned_chisq_dof)
+  simDf
+}
+
+
+
 #' RNA-Seq & Microarray simulation
 #'
 #' A two-sample comparison based on both sources of information.

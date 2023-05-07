@@ -15,9 +15,10 @@ Imports:
     DESeq2,
     genefilter,
     dplyr
-RoxygenNote: 7.2.1
+RoxygenNote: 7.2.3
 Depends: 
     R (>= 3.5)
 Suggests: 
-    testthat (>= 3.0.0)
+    testthat (>= 3.0.0),
+    metap
 Config/testthat/edition: 3

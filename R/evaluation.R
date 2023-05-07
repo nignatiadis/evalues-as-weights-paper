@@ -13,6 +13,7 @@ apply_multiple_testing_methods <- function(sim_df, alpha){
   ep_res <- ep_BH(sim_df$pvalue, sim_df$evalue, alpha, Storey=Storey)
   normalized_res <- normalized_wBH(sim_df$pvalue, sim_df$evalue, alpha, Storey=Storey)
   IHW_res <- ihw_nmeth_wrapper(sim_df$pvalue, sim_df$evalue, alpha, Storey=Storey)
+  fisher_res <- fisher_BH(sim_df$pvalue, sim_df$filter_pvalue, alpha, Storey=Storey)
 
   # collect results
   res_BH <- bind_rows(
@@ -20,7 +21,8 @@ apply_multiple_testing_methods <- function(sim_df, alpha){
     mutate( fdp_eval(Hs, sim_res),   weights="SIM"),
     mutate( fdp_eval(Hs, ep_res), weights="e-values"),
     mutate( fdp_eval(Hs, normalized_res), weights="Norm. e-values"),
-    mutate( fdp_eval(Hs, IHW_res),   weights="IHW")
+    mutate( fdp_eval(Hs, IHW_res),   weights="IHW"),
+    mutate( fdp_eval(Hs, fisher_res),   weights="Fisher")
   )
 
   Storey <- TRUE
@@ -29,13 +31,16 @@ apply_multiple_testing_methods <- function(sim_df, alpha){
   ep_res <- ep_BH(sim_df$pvalue, sim_df$evalue, alpha, Storey=Storey)
   normalized_res <- normalized_wBH(sim_df$pvalue, sim_df$evalue, alpha, Storey=Storey)
   IHW_res <- ihw_nmeth_wrapper(sim_df$pvalue, sim_df$evalue, alpha, Storey=Storey)
+  fisher_res <- fisher_BH(sim_df$pvalue, sim_df$filter_pvalue, alpha, Storey=Storey)
 
   # collect results
   res_Storey <- bind_rows(mutate( fdp_eval(Hs, unweighted_res), weights="Unweighted"),
                           mutate( fdp_eval(Hs, sim_res),   weights="SIM"),
                           mutate( fdp_eval(Hs, ep_res), weights="e-values"),
                           mutate( fdp_eval(Hs, normalized_res), weights="Norm. e-values"),
-                          mutate( fdp_eval(Hs, IHW_res),   weights="IHW"))
+                          mutate( fdp_eval(Hs, IHW_res),   weights="IHW"),
+                          mutate( fdp_eval(Hs, fisher_res),   weights="Fisher")
+  )
 
   res <- rbind( mutate(res_BH, method="BH"), mutate(res_Storey, method="Storey"))
 }
