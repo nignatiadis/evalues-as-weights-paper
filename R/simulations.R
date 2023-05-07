@@ -53,17 +53,19 @@ approx_evalue_fun <- function(chisq_stat, demeaned_chisq_stat, L=6, ncp=10, dof=
 
 #' single sample t-test simulation
 #'
-#' Generates data of two sample t-test simulation
+#' Generates data of single sample t-test simulation
 #'
 #' @param m   Total number of hypotheses
 #' @param pi0   Proportion of nulls
 #' @param effect_size Mean of alternative hypotheses
-#' @param evalue_ncp Noncentrality parameter used for calculation of e-values based on the likelihood ratio test
-#' @param n_samples Total number samples used for each t-test. Each group has n_samples/2 samples.
+#' @param n_samples Total number samples used for each t-test.
+#' @param var_halfrange The population variances of the data for each test are drawn from the uniform distribution on 1-var_halfrange, 1+var_halfrange. Defaults to var_halfrange=0, i.e., all population variances are equal to 1.
+#' @param evalue_ncp Noncentrality parameter used for calculation of e-values based on the approximate likelihood ratio test.
+#' @param L Highest monomial degree to keep in the Taylor expansion of the likelihood ratio e-value (default: L=6).
 #'
 #' @importFrom genefilter rowttests
 #' @importFrom genefilter rowVars
-#' @importFrom stats rnorm dchisq pchisq
+#' @importFrom stats rnorm dchisq pchisq runif
 #' @export
 single_sample_ttest_sim <- function(m, pi0, effect_size, n_samples=10, var_halfrange=0.0, evalue_ncp=10, L=6){
   stopifnot( pi0 > 0)
