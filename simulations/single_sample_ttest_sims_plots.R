@@ -2,7 +2,7 @@ library(tidyverse)
 library(ggrepel)
 library(cowplot)
 
-r <- readRDS(file="single_sample_ttest_simulation_results_with_storey.Rds")
+r <- readRDS(file="single_sample_ttest_simulation_results.Rds")
 
 
 res_r_all <-  bind_rows(r) %>%
@@ -36,7 +36,7 @@ methods_list <- bind_rows(
 method_colors <- with(methods_list, setNames(color, weights))
 
 
-single_panel <- function(res_sub, yaxis, ylabel=yaxis){
+single_panel <- function(res_sub, yaxis, ylabel=yaxis, ylim_upper_fdr=1){
   sim_panel <- ggplot(res_sub,
                       aes(x=effect_size, y= !! sym(yaxis), color=weights, shape=weights)) +
     geom_point(alpha=0.75, size=0.8) +
@@ -65,21 +65,22 @@ single_panel <- function(res_sub, yaxis, ylabel=yaxis){
     theme(legend.position="none",legend.title=element_blank())
   if (yaxis == "FDR"){
     sim_panel <- sim_panel +
-      geom_segment(x=0.5, xend=1.5, y=0.1, yend = 0.1, linetype="dashed", color="black", alpha=0.3)
+      geom_segment(x=0.5, xend=1.5, y=0.1, yend = 0.1, linetype="dashed", color="black", alpha=0.3) +
+      ylim(0, ylim_upper_fdr)
   }
   sim_panel
 }
 
 
 
-main_fig_plot <- plot_grid(single_panel(dplyr::filter(res_r, method=="BH"), "FDR", "FDR(BH)"),
-                           single_panel(dplyr::filter(res_r, method=="Storey"), "FDR", "FDR(Storey)"),
+main_fig_plot <- plot_grid(single_panel(dplyr::filter(res_r, method=="BH"), "FDR", "FDR(BH)", ylim_upper=0.161),
+                           single_panel(dplyr::filter(res_r, method=="Storey"), "FDR", "FDR(Storey)", ylim_upper=0.161),
                            single_panel(merged_tbl, "FDR_ratio", "FDR(Storey)/FDR(BH)"),
                            single_panel(dplyr::filter(res_r, method=="BH"), "Power", "Power(BH)"),
                            single_panel(dplyr::filter(res_r, method=="Storey"), "Power", "Power(Storey)"),
                            single_panel(merged_tbl, "power_ratio", "Power(Storey)/Power(BH)"),
                            nrow = 2,
-                           labels=c("A","B", "C", "D", "E", "F"))
+                           labels=c("A","C", "E", "B", "D", "F"))
 
 save_plot("ttest_sim_main.pdf", main_fig_plot, base_height=7, base_width=15)
 
@@ -92,5 +93,3 @@ nrow=2,
 labels = c("A", "B"))
 
 save_plot("ttest_sim_heterogeneous.pdf", second_fig, base_height=7, base_width=15)
-
-#labeller=label_bquote(cols = pi[M]*' = '*.(as.character(prop_signal_microarray))

@@ -6,7 +6,7 @@ library(EValueWeightsPaper)
 
 
 alpha <- 0.1
-nreps <- 2000
+nreps <- 4000
 
 ttest_sim_combs <- expand.grid(m = 20000,
                                pi0 = 0.95,
@@ -36,5 +36,5 @@ r <- foreach(i=1:nrow(ttest_sim_combs)) %dorng% {
   cbind(mtp_eval, ttest_sim_combs[i,])
 }
 
-saveRDS(r, file="single_sample_ttest_simulation_results_with_storey.Rds")
+saveRDS(r, file="single_sample_ttest_simulation_results.Rds")
 

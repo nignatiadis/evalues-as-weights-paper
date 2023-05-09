@@ -11,7 +11,7 @@ stylized_sim <- function(m = 20,
                          b = 0.5) {
   t <- seq(0, b, b / 50)
 
-  computep = function(del) {
+  computep = function(del, X, Y) {
     #### Method 1: likelihood ratio
 
     delX = del * sig.ratio
@@ -42,7 +42,7 @@ stylized_sim <- function(m = 20,
   for (i in 1:N) {
     X = rnorm(n)
     Y = rnorm(m)
-    rej = sapply(t, computep)
+    rej = sapply(t, function(t_single) computep(t_single, X, Y))
     ALLP  <- ALLP + rej
   }
 
